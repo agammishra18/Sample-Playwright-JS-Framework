@@ -1,0 +1,77 @@
+name: Playwright Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * *'   # nightly smoke at 02:00 UTC
+  workflow_dispatch:
+    inputs:
+      test_env:
+        description: 'Target environment'
+        required: true
+        default: 'qa'
+        type: choice
+        options: [qa, stage, prod]
+
+jobs:
+  test:
+    name: Playwright (${{ matrix.project }})
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox, webkit, api]
+
+    env:
+      TEST_ENV: ${{ github.event.inputs.test_env || 'qa' }}
+      UI_USERNAME: ${{ secrets.UI_USERNAME || 'standard_user' }}
+      UI_PASSWORD: ${{ secrets.UI_PASSWORD || 'secret_sauce' }}
+      API_TOKEN: ${{ secrets.API_TOKEN || 'reqres-free-v1' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        if: matrix.project != 'api'
+        run: npx playwright install --with-deps ${{ matrix.project }}
+
+      - name: Run tests
+        run: npx playwright test --project=${{ matrix.project }}
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.project }}
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ matrix.project }}
+          path: allure-results/
+          retention-days: 14
+
+      - name: Upload test-results (traces, videos)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.project }}
+          path: test-results/
+          retention-days: 7

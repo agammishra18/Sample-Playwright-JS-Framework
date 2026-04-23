@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+
+# Playwright outputs
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Allure outputs
+allure-results/
+allure-report/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.log
